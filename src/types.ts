@@ -11,7 +11,20 @@ export enum Direction {
 }
 
 export enum GameState {
+  ThemeSelect,
   Start,
   Playing,
   GameOver,
 }
+
+export interface Theme {
+  name: string;
+  dark: string;   // foreground / "on" pixel color
+  light: string;  // background / "off" pixel color
+}
+
+export const THEMES: Theme[] = [
+  { name: "CLASSIC", dark: "#43523D", light: "#C7D9A4" },
+  { name: "PINK",    dark: "#FF1493", light: "#FFE4E1" },
+  { name: "GOLD",    dark: "#DAA520", light: "#E0E8F8" },
+];

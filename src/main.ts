@@ -1,4 +1,4 @@
-import { Direction, GameState } from "./types.js";
+import { Direction, GameState, THEMES } from "./types.js";
 import { Game } from "./game.js";
 import { Renderer } from "./renderer.js";
 import { Input } from "./input.js";
@@ -8,7 +8,8 @@ class App {
   private game: Game;
   private renderer: Renderer;
   private sound: Sound;
-  private state: GameState = GameState.Start;
+  private state: GameState = GameState.ThemeSelect;
+  private themeIndex: number = 0;
   private lastTick: number = 0;
   private animFrame: number = 0;
 
@@ -23,23 +24,38 @@ class App {
       () => this.onEnter()
     );
 
-    this.renderer.render(this.state, this.game);
+    this.renderer.render(this.state, this.game, this.themeIndex);
   }
 
   private onDirection(dir: Direction): void {
-    if (this.state === GameState.Playing) {
+    if (this.state === GameState.ThemeSelect) {
+      if (dir === Direction.Up) {
+        this.themeIndex = (this.themeIndex - 1 + THEMES.length) % THEMES.length;
+        this.sound.navigate();
+        this.renderer.render(this.state, this.game, this.themeIndex);
+      } else if (dir === Direction.Down) {
+        this.themeIndex = (this.themeIndex + 1) % THEMES.length;
+        this.sound.navigate();
+        this.renderer.render(this.state, this.game, this.themeIndex);
+      }
+    } else if (this.state === GameState.Playing) {
       this.game.setDirection(dir);
     }
   }
 
   private onEnter(): void {
     switch (this.state) {
+      case GameState.ThemeSelect:
+        this.renderer.setTheme(THEMES[this.themeIndex]);
+        this.state = GameState.Start;
+        this.renderer.render(this.state, this.game);
+        break;
       case GameState.Start:
         this.startGame();
         break;
       case GameState.GameOver:
-        this.state = GameState.Start;
-        this.renderer.render(this.state, this.game);
+        this.state = GameState.ThemeSelect;
+        this.renderer.render(this.state, this.game, this.themeIndex);
         break;
     }
   }

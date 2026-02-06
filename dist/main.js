@@ -1,11 +1,12 @@
-import { GameState } from "./types.js";
+import { Direction, GameState, THEMES } from "./types.js";
 import { Game } from "./game.js";
 import { Renderer } from "./renderer.js";
 import { Input } from "./input.js";
 import { Sound } from "./sound.js";
 class App {
     constructor() {
-        this.state = GameState.Start;
+        this.state = GameState.ThemeSelect;
+        this.themeIndex = 0;
         this.lastTick = 0;
         this.animFrame = 0;
         this.loop = (now) => {
@@ -37,21 +38,38 @@ class App {
         this.renderer = new Renderer(canvas);
         this.sound = new Sound();
         new Input((dir) => this.onDirection(dir), () => this.onEnter());
-        this.renderer.render(this.state, this.game);
+        this.renderer.render(this.state, this.game, this.themeIndex);
     }
     onDirection(dir) {
-        if (this.state === GameState.Playing) {
+        if (this.state === GameState.ThemeSelect) {
+            if (dir === Direction.Up) {
+                this.themeIndex = (this.themeIndex - 1 + THEMES.length) % THEMES.length;
+                this.sound.navigate();
+                this.renderer.render(this.state, this.game, this.themeIndex);
+            }
+            else if (dir === Direction.Down) {
+                this.themeIndex = (this.themeIndex + 1) % THEMES.length;
+                this.sound.navigate();
+                this.renderer.render(this.state, this.game, this.themeIndex);
+            }
+        }
+        else if (this.state === GameState.Playing) {
             this.game.setDirection(dir);
         }
     }
     onEnter() {
         switch (this.state) {
+            case GameState.ThemeSelect:
+                this.renderer.setTheme(THEMES[this.themeIndex]);
+                this.state = GameState.Start;
+                this.renderer.render(this.state, this.game);
+                break;
             case GameState.Start:
                 this.startGame();
                 break;
             case GameState.GameOver:
-                this.state = GameState.Start;
-                this.renderer.render(this.state, this.game);
+                this.state = GameState.ThemeSelect;
+                this.renderer.render(this.state, this.game, this.themeIndex);
                 break;
         }
     }

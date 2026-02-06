@@ -7,8 +7,14 @@ export var Direction;
 })(Direction || (Direction = {}));
 export var GameState;
 (function (GameState) {
-    GameState[GameState["Start"] = 0] = "Start";
-    GameState[GameState["Playing"] = 1] = "Playing";
-    GameState[GameState["GameOver"] = 2] = "GameOver";
+    GameState[GameState["ThemeSelect"] = 0] = "ThemeSelect";
+    GameState[GameState["Start"] = 1] = "Start";
+    GameState[GameState["Playing"] = 2] = "Playing";
+    GameState[GameState["GameOver"] = 3] = "GameOver";
 })(GameState || (GameState = {}));
+export const THEMES = [
+    { name: "CLASSIC", dark: "#43523D", light: "#C7D9A4" },
+    { name: "PINK", dark: "#FF1493", light: "#FFE4E1" },
+    { name: "GOLD", dark: "#DAA520", light: "#E0E8F8" },
+];
 //# sourceMappingURL=types.js.map

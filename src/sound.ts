@@ -57,4 +57,9 @@ export class Sound {
   move(): void {
     this.beep(200, 0.015, 0.05);
   }
+
+  /** Menu navigation — short click */
+  navigate(): void {
+    this.beep(600, 0.03, 0.1);
+  }
 }

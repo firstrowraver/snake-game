@@ -1,13 +1,12 @@
-import { GameState } from "./types.js";
+import { GameState, THEMES } from "./types.js";
 import { SCREEN_W, SCREEN_H, GRID_OFFSET_Y, GRID_ROWS } from "./game.js";
-// Nokia 3310 LCD colors
-const LCD_DARK = "#43523D"; // dark pixel (on)
-const LCD_LIGHT = "#C7D9A4"; // light pixel (off / background)
 export class Renderer {
     constructor(canvas) {
+        // Current theme colors
+        this.dark = "#43523D";
+        this.light = "#C7D9A4";
         this.canvas = canvas;
         // Scale so the 84x48 screen fills a reasonable desktop area
-        // Aim for ~8-10x scale => 672x384 or 840x480
         this.scale = Math.min(Math.floor(window.innerHeight * 0.85 / SCREEN_H), Math.floor(window.innerWidth * 0.85 / SCREEN_W));
         this.scale = Math.max(this.scale, 4); // minimum 4x
         this.canvas.width = SCREEN_W * this.scale;
@@ -20,14 +19,28 @@ export class Renderer {
         this.buffer.height = SCREEN_H;
         this.bufCtx = this.buffer.getContext("2d");
     }
+    setTheme(theme) {
+        this.dark = theme.dark;
+        this.light = theme.light;
+    }
     /** Set a single pixel on the buffer */
     px(x, y, on = true) {
-        this.bufCtx.fillStyle = on ? LCD_DARK : LCD_LIGHT;
+        this.bufCtx.fillStyle = on ? this.dark : this.light;
+        this.bufCtx.fillRect(x, y, 1, 1);
+    }
+    /** Set a pixel with an explicit color */
+    pxColor(x, y, color) {
+        this.bufCtx.fillStyle = color;
         this.bufCtx.fillRect(x, y, 1, 1);
     }
     /** Clear buffer to LCD background */
     clear() {
-        this.bufCtx.fillStyle = LCD_LIGHT;
+        this.bufCtx.fillStyle = this.light;
+        this.bufCtx.fillRect(0, 0, SCREEN_W, SCREEN_H);
+    }
+    /** Clear buffer to a specific color */
+    clearColor(color) {
+        this.bufCtx.fillStyle = color;
         this.bufCtx.fillRect(0, 0, SCREEN_W, SCREEN_H);
     }
     /** Flush buffer to visible canvas */
@@ -51,9 +64,27 @@ export class Renderer {
             }
         }
     }
+    /** Draw char with explicit color */
+    drawCharColor(ch, x, y, color) {
+        const glyph = Renderer.FONT[ch.toUpperCase()];
+        if (!glyph)
+            return;
+        for (let row = 0; row < 5; row++) {
+            for (let col = 0; col < 3; col++) {
+                if (glyph[row] & (1 << (2 - col))) {
+                    this.pxColor(x + col, y + row, color);
+                }
+            }
+        }
+    }
     drawText(text, x, y) {
         for (let i = 0; i < text.length; i++) {
             this.drawChar(text[i], x + i * 4, y);
+        }
+    }
+    drawTextColor(text, x, y, color) {
+        for (let i = 0; i < text.length; i++) {
+            this.drawCharColor(text[i], x + i * 4, y, color);
         }
     }
     /** Center text horizontally */
@@ -61,6 +92,45 @@ export class Renderer {
         const w = text.length * 4 - 1;
         const x = Math.floor((SCREEN_W - w) / 2);
         this.drawText(text, x, y);
+    }
+    drawTextCenteredColor(text, y, color) {
+        const w = text.length * 4 - 1;
+        const x = Math.floor((SCREEN_W - w) / 2);
+        this.drawTextColor(text, x, y, color);
+    }
+    // ---- Theme selection screen ----
+    renderThemeSelect(selectedIndex) {
+        this.clearColor("#1A1A2E");
+        // Title
+        this.drawTextCenteredColor("CHOOSE THEME", 3, "#FFFFFF");
+        // Divider
+        for (let x = 10; x < SCREEN_W - 10; x++) {
+            this.pxColor(x, 11, "#444466");
+        }
+        // Options
+        const startY = 16;
+        const spacing = 10;
+        for (let i = 0; i < THEMES.length; i++) {
+            const theme = THEMES[i];
+            const y = startY + i * spacing;
+            const isSelected = i === selectedIndex;
+            if (isSelected) {
+                // Highlight background bar
+                this.bufCtx.fillStyle = "#2A2A4E";
+                this.bufCtx.fillRect(4, y - 2, SCREEN_W - 8, 9);
+                // Arrow indicator
+                this.drawCharColor(">", 6, y, "#FFFFFF");
+            }
+            // Color preview swatch (4x5 block showing the theme's dark color)
+            this.bufCtx.fillStyle = theme.dark;
+            this.bufCtx.fillRect(14, y, 4, 5);
+            // Theme name
+            const nameColor = isSelected ? theme.dark : "#888899";
+            this.drawTextColor(theme.name, 22, y, nameColor);
+        }
+        // Footer
+        this.drawTextCenteredColor("ENTER TO SELECT", 44, "#555577");
+        this.flush();
     }
     // ---- Game rendering ----
     renderStart() {
@@ -124,8 +194,11 @@ export class Renderer {
         this.drawTextCentered("PRESS ENTER", 36);
         this.flush();
     }
-    render(state, game) {
+    render(state, game, themeIndex) {
         switch (state) {
+            case GameState.ThemeSelect:
+                this.renderThemeSelect(themeIndex ?? 0);
+                break;
             case GameState.Start:
                 this.renderStart();
                 break;
@@ -170,7 +243,11 @@ Renderer.FONT = {
     "U": [0b101, 0b101, 0b101, 0b101, 0b111],
     "W": [0b101, 0b101, 0b111, 0b111, 0b101],
     "Y": [0b101, 0b101, 0b010, 0b010, 0b010],
+    "F": [0b111, 0b100, 0b111, 0b100, 0b100],
+    "B": [0b110, 0b101, 0b110, 0b101, 0b110],
+    "X": [0b101, 0b101, 0b010, 0b101, 0b101],
     " ": [0b000, 0b000, 0b000, 0b000, 0b000],
     ":": [0b000, 0b010, 0b000, 0b010, 0b000],
+    ">": [0b100, 0b010, 0b001, 0b010, 0b100],
 };
 //# sourceMappingURL=renderer.js.map
