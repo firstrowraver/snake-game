@@ -1,0 +1,176 @@
+import { GameState } from "./types.js";
+import { SCREEN_W, SCREEN_H, GRID_OFFSET_Y, GRID_ROWS } from "./game.js";
+// Nokia 3310 LCD colors
+const LCD_DARK = "#43523D"; // dark pixel (on)
+const LCD_LIGHT = "#C7D9A4"; // light pixel (off / background)
+export class Renderer {
+    constructor(canvas) {
+        this.canvas = canvas;
+        // Scale so the 84x48 screen fills a reasonable desktop area
+        // Aim for ~8-10x scale => 672x384 or 840x480
+        this.scale = Math.min(Math.floor(window.innerHeight * 0.85 / SCREEN_H), Math.floor(window.innerWidth * 0.85 / SCREEN_W));
+        this.scale = Math.max(this.scale, 4); // minimum 4x
+        this.canvas.width = SCREEN_W * this.scale;
+        this.canvas.height = SCREEN_H * this.scale;
+        this.ctx = canvas.getContext("2d");
+        this.ctx.imageSmoothingEnabled = false;
+        // Native-res buffer
+        this.buffer = document.createElement("canvas");
+        this.buffer.width = SCREEN_W;
+        this.buffer.height = SCREEN_H;
+        this.bufCtx = this.buffer.getContext("2d");
+    }
+    /** Set a single pixel on the buffer */
+    px(x, y, on = true) {
+        this.bufCtx.fillStyle = on ? LCD_DARK : LCD_LIGHT;
+        this.bufCtx.fillRect(x, y, 1, 1);
+    }
+    /** Clear buffer to LCD background */
+    clear() {
+        this.bufCtx.fillStyle = LCD_LIGHT;
+        this.bufCtx.fillRect(0, 0, SCREEN_W, SCREEN_H);
+    }
+    /** Flush buffer to visible canvas */
+    flush() {
+        this.ctx.drawImage(this.buffer, 0, 0, SCREEN_W, SCREEN_H, 0, 0, this.canvas.width, this.canvas.height);
+    }
+    /** Draw a horizontal line */
+    hline(x1, x2, y) {
+        for (let x = x1; x <= x2; x++)
+            this.px(x, y);
+    }
+    drawChar(ch, x, y) {
+        const glyph = Renderer.FONT[ch.toUpperCase()];
+        if (!glyph)
+            return;
+        for (let row = 0; row < 5; row++) {
+            for (let col = 0; col < 3; col++) {
+                if (glyph[row] & (1 << (2 - col))) {
+                    this.px(x + col, y + row);
+                }
+            }
+        }
+    }
+    drawText(text, x, y) {
+        for (let i = 0; i < text.length; i++) {
+            this.drawChar(text[i], x + i * 4, y);
+        }
+    }
+    /** Center text horizontally */
+    drawTextCentered(text, y) {
+        const w = text.length * 4 - 1;
+        const x = Math.floor((SCREEN_W - w) / 2);
+        this.drawText(text, x, y);
+    }
+    // ---- Game rendering ----
+    renderStart() {
+        this.clear();
+        this.drawTextCentered("SNAKE", 8);
+        // Draw a small snake icon
+        const cx = Math.floor(SCREEN_W / 2);
+        const cy = 22;
+        for (let i = 0; i < 8; i++) {
+            this.px(cx - 8 + i * 2, cy);
+            this.px(cx - 8 + i * 2 + 1, cy);
+            this.px(cx - 8 + i * 2, cy + 1);
+            this.px(cx - 8 + i * 2 + 1, cy + 1);
+        }
+        this.drawTextCentered("PRESS ENTER", 34);
+        this.drawTextCentered("TO START", 41);
+        this.flush();
+    }
+    renderPlaying(game) {
+        this.clear();
+        // Score bar at top
+        this.drawText("SCORE:" + game.score.toString(), 1, 1);
+        this.drawText("HI:" + game.highScore.toString(), 54, 1);
+        // Divider line
+        this.hline(0, SCREEN_W - 1, GRID_OFFSET_Y - 2);
+        // Draw border around play area
+        // Play area: x=1..82 (41 cols * 2px), y=GRID_OFFSET_Y..GRID_OFFSET_Y+35 (18 rows * 2px)
+        const top = GRID_OFFSET_Y - 1;
+        const bottom = GRID_OFFSET_Y + GRID_ROWS * 2;
+        // Top & bottom borders
+        this.hline(0, SCREEN_W - 1, top);
+        this.hline(0, SCREEN_W - 1, bottom);
+        // Side borders
+        for (let y = top; y <= bottom; y++) {
+            this.px(0, y);
+            this.px(SCREEN_W - 1, y);
+        }
+        // Draw food (2x2 block)
+        const fx = 1 + game.food.x * 2;
+        const fy = GRID_OFFSET_Y + game.food.y * 2;
+        this.px(fx, fy);
+        this.px(fx + 1, fy);
+        this.px(fx, fy + 1);
+        this.px(fx + 1, fy + 1);
+        // Draw snake (2x2 blocks)
+        for (const seg of game.snake) {
+            const sx = 1 + seg.x * 2;
+            const sy = GRID_OFFSET_Y + seg.y * 2;
+            this.px(sx, sy);
+            this.px(sx + 1, sy);
+            this.px(sx, sy + 1);
+            this.px(sx + 1, sy + 1);
+        }
+        this.flush();
+    }
+    renderGameOver(game) {
+        this.clear();
+        this.drawTextCentered("GAME OVER", 8);
+        this.drawTextCentered("SCORE:" + game.score.toString(), 18);
+        this.drawTextCentered("HI:" + game.highScore.toString(), 26);
+        this.drawTextCentered("PRESS ENTER", 36);
+        this.flush();
+    }
+    render(state, game) {
+        switch (state) {
+            case GameState.Start:
+                this.renderStart();
+                break;
+            case GameState.Playing:
+                this.renderPlaying(game);
+                break;
+            case GameState.GameOver:
+                this.renderGameOver(game);
+                break;
+        }
+    }
+}
+// ---- Tiny 3x5 pixel font ----
+Renderer.FONT = {
+    "0": [0b111, 0b101, 0b101, 0b101, 0b111],
+    "1": [0b010, 0b110, 0b010, 0b010, 0b111],
+    "2": [0b111, 0b001, 0b111, 0b100, 0b111],
+    "3": [0b111, 0b001, 0b111, 0b001, 0b111],
+    "4": [0b101, 0b101, 0b111, 0b001, 0b001],
+    "5": [0b111, 0b100, 0b111, 0b001, 0b111],
+    "6": [0b111, 0b100, 0b111, 0b101, 0b111],
+    "7": [0b111, 0b001, 0b001, 0b001, 0b001],
+    "8": [0b111, 0b101, 0b111, 0b101, 0b111],
+    "9": [0b111, 0b101, 0b111, 0b001, 0b111],
+    "S": [0b111, 0b100, 0b111, 0b001, 0b111],
+    "N": [0b101, 0b111, 0b111, 0b101, 0b101],
+    "A": [0b111, 0b101, 0b111, 0b101, 0b101],
+    "K": [0b101, 0b110, 0b100, 0b110, 0b101],
+    "E": [0b111, 0b100, 0b111, 0b100, 0b111],
+    "P": [0b111, 0b101, 0b111, 0b100, 0b100],
+    "R": [0b111, 0b101, 0b111, 0b110, 0b101],
+    "T": [0b111, 0b010, 0b010, 0b010, 0b010],
+    "O": [0b111, 0b101, 0b101, 0b101, 0b111],
+    "C": [0b111, 0b100, 0b100, 0b100, 0b111],
+    "G": [0b111, 0b100, 0b101, 0b101, 0b111],
+    "M": [0b101, 0b111, 0b111, 0b101, 0b101],
+    "V": [0b101, 0b101, 0b101, 0b101, 0b010],
+    "H": [0b101, 0b101, 0b111, 0b101, 0b101],
+    "I": [0b111, 0b010, 0b010, 0b010, 0b111],
+    "L": [0b100, 0b100, 0b100, 0b100, 0b111],
+    "D": [0b110, 0b101, 0b101, 0b101, 0b110],
+    "U": [0b101, 0b101, 0b101, 0b101, 0b111],
+    "W": [0b101, 0b101, 0b111, 0b111, 0b101],
+    "Y": [0b101, 0b101, 0b010, 0b010, 0b010],
+    " ": [0b000, 0b000, 0b000, 0b000, 0b000],
+    ":": [0b000, 0b010, 0b000, 0b010, 0b000],
+};
+//# sourceMappingURL=renderer.js.map
