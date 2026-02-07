@@ -31,13 +31,22 @@ export class Input {
         // Touch controls
         const dirMap = { up: Direction.Up, right: Direction.Right, down: Direction.Down, left: Direction.Left };
         document.querySelectorAll(".ctrl-btn").forEach((btn) => {
+            let lastTouchTime = 0;
             btn.addEventListener("touchstart", (e) => {
                 e.preventDefault();
+                lastTouchTime = Date.now();
                 const dir = dirMap[btn.dataset.dir];
                 if (dir !== undefined) {
                     this.onDirection(dir);
                 }
             }, { passive: false });
+            btn.addEventListener("click", () => {
+                if (Date.now() - lastTouchTime < 300) return;
+                const dir = dirMap[btn.dataset.dir];
+                if (dir !== undefined) {
+                    this.onDirection(dir);
+                }
+            });
         });
     }
     destroy() {

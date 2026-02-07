@@ -22,13 +22,25 @@ export class Input {
 
     // Touch controls
     document.querySelectorAll<HTMLButtonElement>(".ctrl-btn").forEach((btn) => {
+      let lastTouchTime = 0;
+
       btn.addEventListener("touchstart", (e: TouchEvent) => {
         e.preventDefault();
+        lastTouchTime = Date.now();
         const dir = Input.DIR_MAP[btn.dataset.dir ?? ""];
         if (dir !== undefined) {
           this.onDirection(dir);
         }
       }, { passive: false });
+
+      btn.addEventListener("click", () => {
+        // Skip if touchstart already fired recently (prevents double-fire)
+        if (Date.now() - lastTouchTime < 300) return;
+        const dir = Input.DIR_MAP[btn.dataset.dir ?? ""];
+        if (dir !== undefined) {
+          this.onDirection(dir);
+        }
+      });
     });
   }
 

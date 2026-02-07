@@ -26,17 +26,13 @@
     }
     #controls {
       display: none;
-      flex-direction: column;
-      align-items: center;
-      margin-top: 16px;
+      grid-template-columns: repeat(3, min(14vw, 56px));
+      grid-template-rows: repeat(3, min(14vw, 56px));
       gap: 4px;
+      margin-top: 16px;
       user-select: none;
       -webkit-user-select: none;
       touch-action: manipulation;
-    }
-    .ctrl-row {
-      display: flex;
-      gap: 4px;
     }
     .ctrl-btn {
       width: min(14vw, 56px);
@@ -56,9 +52,13 @@
     .ctrl-btn:active {
       background: rgba(255, 255, 255, 0.2);
     }
+    .ctrl-btn[data-dir="up"]    { grid-column: 2; grid-row: 1; }
+    .ctrl-btn[data-dir="left"]  { grid-column: 1; grid-row: 2; }
+    .ctrl-btn[data-dir="right"] { grid-column: 3; grid-row: 2; }
+    .ctrl-btn[data-dir="down"]  { grid-column: 2; grid-row: 3; }
     @media (pointer: coarse) {
       #controls {
-        display: flex;
+        display: grid;
       }
     }
   </style>
@@ -67,10 +67,8 @@
   <canvas id="game"></canvas>
   <div id="controls">
     <button class="ctrl-btn" data-dir="up">&#9650;</button>
-    <div class="ctrl-row">
-      <button class="ctrl-btn" data-dir="left">&#9664;</button>
-      <button class="ctrl-btn" data-dir="right">&#9654;</button>
-    </div>
+    <button class="ctrl-btn" data-dir="left">&#9664;</button>
+    <button class="ctrl-btn" data-dir="right">&#9654;</button>
     <button class="ctrl-btn" data-dir="down">&#9660;</button>
   </div>
   <script type="module" src="dist/main.js"></script>
