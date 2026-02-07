@@ -203,11 +203,11 @@ export class Renderer {
 
     // Scroll-down indicator
     if (viewStart + maxVisible < total) {
-      this.drawTextCenteredColor("...", 44, "#555577");
+      this.drawTextCenteredColor("...", 39, "#555577");
     }
 
     // Footer
-    this.drawTextCenteredColor("ENTER TO SELECT", 44, "#555577");
+    this.drawTextCenteredColor("ENTER TO SELECT", 42, "#555577");
 
     this.flush();
   }
