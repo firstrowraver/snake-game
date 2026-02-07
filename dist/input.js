@@ -28,6 +28,17 @@ export class Input {
         this.onDirection = onDirection;
         this.onEnter = onEnter;
         window.addEventListener("keydown", this.handleKey);
+        // Touch controls
+        const dirMap = { up: Direction.Up, right: Direction.Right, down: Direction.Down, left: Direction.Left };
+        document.querySelectorAll(".ctrl-btn").forEach((btn) => {
+            btn.addEventListener("touchstart", (e) => {
+                e.preventDefault();
+                const dir = dirMap[btn.dataset.dir];
+                if (dir !== undefined) {
+                    this.onDirection(dir);
+                }
+            }, { passive: false });
+        });
     }
     destroy() {
         window.removeEventListener("keydown", this.handleKey);

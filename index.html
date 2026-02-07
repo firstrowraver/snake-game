@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Snake</title>
   <style>
     * {
@@ -16,6 +16,7 @@
       background: #000;
       overflow: hidden;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
     }
@@ -23,10 +24,55 @@
       image-rendering: pixelated;
       image-rendering: crisp-edges;
     }
+    #controls {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 16px;
+      gap: 4px;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+    .ctrl-row {
+      display: flex;
+      gap: 4px;
+    }
+    .ctrl-btn {
+      width: min(14vw, 56px);
+      height: min(14vw, 56px);
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      color: #fff;
+      font-size: min(6vw, 24px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      cursor: pointer;
+    }
+    .ctrl-btn:active {
+      background: rgba(255, 255, 255, 0.2);
+    }
+    @media (pointer: coarse) {
+      #controls {
+        display: flex;
+      }
+    }
   </style>
 </head>
 <body>
   <canvas id="game"></canvas>
+  <div id="controls">
+    <button class="ctrl-btn" data-dir="up">&#9650;</button>
+    <div class="ctrl-row">
+      <button class="ctrl-btn" data-dir="left">&#9664;</button>
+      <button class="ctrl-btn" data-dir="right">&#9654;</button>
+    </div>
+    <button class="ctrl-btn" data-dir="down">&#9660;</button>
+  </div>
   <script type="module" src="dist/main.js"></script>
 </body>
 </html>

@@ -17,6 +17,7 @@ class App {
   private isFancy: boolean = false;
   private lastTick: number = 0;
   private animFrame: number = 0;
+  private themeAnimFrame: number = 0;
 
   constructor() {
     this.canvas = document.getElementById("game") as HTMLCanvasElement;
@@ -30,7 +31,7 @@ class App {
       () => this.onEnter()
     );
 
-    this.renderer.render(this.state, this.game, this.themeIndex);
+    this.startThemeSelectLoop();
   }
 
   private onDirection(dir: Direction): void {
@@ -38,20 +39,25 @@ class App {
       if (dir === Direction.Up) {
         this.themeIndex = (this.themeIndex - 1 + THEMES.length) % THEMES.length;
         this.sound.navigate();
-        this.renderer.render(this.state, this.game, this.themeIndex);
       } else if (dir === Direction.Down) {
         this.themeIndex = (this.themeIndex + 1) % THEMES.length;
         this.sound.navigate();
-        this.renderer.render(this.state, this.game, this.themeIndex);
+      } else if (dir === Direction.Right) {
+        this.onEnter();
       }
     } else if (this.state === GameState.Playing) {
       this.game.setDirection(dir);
+    } else if (this.state === GameState.Start || this.state === GameState.GameOver) {
+      if (dir === Direction.Right) {
+        this.onEnter();
+      }
     }
   }
 
   private onEnter(): void {
     switch (this.state) {
       case GameState.ThemeSelect: {
+        cancelAnimationFrame(this.themeAnimFrame);
         const theme = THEMES[this.themeIndex];
         this.isFancy = !!theme.fancy;
 
@@ -75,7 +81,7 @@ class App {
       case GameState.GameOver:
         this.music.stopMusic();
         this.state = GameState.ThemeSelect;
-        this.renderer.render(this.state, this.game, this.themeIndex);
+        this.startThemeSelectLoop();
         break;
     }
   }
@@ -105,6 +111,17 @@ class App {
       this.renderer.render(state, this.game);
     }
   }
+
+  private startThemeSelectLoop(): void {
+    cancelAnimationFrame(this.themeAnimFrame);
+    this.themeAnimFrame = requestAnimationFrame(this.themeSelectLoop);
+  }
+
+  private themeSelectLoop = (now: number): void => {
+    if (this.state !== GameState.ThemeSelect) return;
+    this.renderer.render(this.state, this.game, this.themeIndex, now);
+    this.themeAnimFrame = requestAnimationFrame(this.themeSelectLoop);
+  };
 
   private loop = (now: number): void => {
     if (this.state !== GameState.Playing) return;

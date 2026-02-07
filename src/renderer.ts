@@ -14,8 +14,10 @@ export class Renderer {
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
 
+    const isTouch = window.matchMedia("(pointer: coarse)").matches;
+    const vScale = isTouch ? 0.55 : 0.85;
     this.scale = Math.min(
-      Math.floor(window.innerHeight * 0.85 / SCREEN_H),
+      Math.floor(window.innerHeight * vScale / SCREEN_H),
       Math.floor(window.innerWidth * 0.85 / SCREEN_W)
     );
     this.scale = Math.max(this.scale, 4);
@@ -47,6 +49,10 @@ export class Renderer {
   private pxColor(x: number, y: number, color: string): void {
     this.bufCtx.fillStyle = color;
     this.bufCtx.fillRect(x, y, 1, 1);
+  }
+
+  private hslColor(hue: number, saturation: number = 85, lightness: number = 60): string {
+    return `hsl(${hue % 360}, ${saturation}%, ${lightness}%)`;
   }
 
   private clear(): void {
@@ -157,7 +163,7 @@ export class Renderer {
 
   // ---- Theme selection screen (scrollable) ----
 
-  renderThemeSelect(selectedIndex: number): void {
+  renderThemeSelect(selectedIndex: number, timestamp: number = 0): void {
     this.clearColor("#1A1A2E");
 
     // Title
@@ -193,12 +199,29 @@ export class Renderer {
         this.drawCharColor(">", 6, y, "#FFFFFF");
       }
 
-      // Color preview swatch
-      this.bufCtx.fillStyle = theme.dark;
-      this.bufCtx.fillRect(14, y, 4, 5);
+      if (theme.fancy) {
+        // Rainbow cycling for fancy theme
+        const baseHue = (timestamp * 0.12) % 360;
 
-      const nameColor = isSelected ? theme.dark : "#888899";
-      this.drawTextColor(theme.name, 22, y, nameColor);
+        // Color preview swatch cycles with rainbow
+        this.bufCtx.fillStyle = this.hslColor(baseHue);
+        this.bufCtx.fillRect(14, y, 4, 5);
+
+        // Draw name with per-character rainbow colors
+        const lightness = isSelected ? 60 : 45;
+        const hueStep = 360 / Math.max(theme.name.length, 1);
+        for (let ci = 0; ci < theme.name.length; ci++) {
+          const hue = (baseHue + ci * hueStep) % 360;
+          this.drawCharColor(theme.name[ci], 22 + ci * 4, y, this.hslColor(hue, 85, lightness));
+        }
+      } else {
+        // Non-fancy themes: static color
+        this.bufCtx.fillStyle = theme.dark;
+        this.bufCtx.fillRect(14, y, 4, 5);
+
+        const nameColor = isSelected ? theme.dark : "#888899";
+        this.drawTextColor(theme.name, 22, y, nameColor);
+      }
     }
 
     // Scroll-down indicator
@@ -276,10 +299,10 @@ export class Renderer {
     this.flush();
   }
 
-  render(state: GameState, game: Game, themeIndex?: number): void {
+  render(state: GameState, game: Game, themeIndex?: number, timestamp?: number): void {
     switch (state) {
       case GameState.ThemeSelect:
-        this.renderThemeSelect(themeIndex ?? 0);
+        this.renderThemeSelect(themeIndex ?? 0, timestamp ?? 0);
         break;
       case GameState.Start:
         this.renderStart();

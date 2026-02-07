@@ -5,7 +5,9 @@ export class Renderer {
         this.dark = "#43523D";
         this.light = "#C7D9A4";
         this.canvas = canvas;
-        this.scale = Math.min(Math.floor(window.innerHeight * 0.85 / SCREEN_H), Math.floor(window.innerWidth * 0.85 / SCREEN_W));
+        const isTouch = window.matchMedia("(pointer: coarse)").matches;
+        const vScale = isTouch ? 0.55 : 0.85;
+        this.scale = Math.min(Math.floor(window.innerHeight * vScale / SCREEN_H), Math.floor(window.innerWidth * 0.85 / SCREEN_W));
         this.scale = Math.max(this.scale, 4);
         this.canvas.width = SCREEN_W * this.scale;
         this.canvas.height = SCREEN_H * this.scale;
@@ -29,6 +31,9 @@ export class Renderer {
     pxColor(x, y, color) {
         this.bufCtx.fillStyle = color;
         this.bufCtx.fillRect(x, y, 1, 1);
+    }
+    hslColor(hue, saturation = 85, lightness = 60) {
+        return `hsl(${hue % 360}, ${saturation}%, ${lightness}%)`;
     }
     clear() {
         this.bufCtx.fillStyle = this.light;
@@ -90,7 +95,7 @@ export class Renderer {
         this.drawTextColor(text, x, y, color);
     }
     // ---- Theme selection screen (scrollable) ----
-    renderThemeSelect(selectedIndex) {
+    renderThemeSelect(selectedIndex, timestamp = 0) {
         this.clearColor("#1A1A2E");
         // Title
         this.drawTextCenteredColor("CHOOSE THEME", 2, "#FFFFFF");
@@ -118,11 +123,27 @@ export class Renderer {
                 this.bufCtx.fillRect(4, y - 2, SCREEN_W - 8, 9);
                 this.drawCharColor(">", 6, y, "#FFFFFF");
             }
-            // Color preview swatch
-            this.bufCtx.fillStyle = theme.dark;
-            this.bufCtx.fillRect(14, y, 4, 5);
-            const nameColor = isSelected ? theme.dark : "#888899";
-            this.drawTextColor(theme.name, 22, y, nameColor);
+            if (theme.fancy) {
+                // Rainbow cycling for fancy theme
+                const baseHue = (timestamp * 0.12) % 360;
+                // Color preview swatch cycles with rainbow
+                this.bufCtx.fillStyle = this.hslColor(baseHue);
+                this.bufCtx.fillRect(14, y, 4, 5);
+                // Draw name with per-character rainbow colors
+                const lightness = isSelected ? 60 : 45;
+                const hueStep = 360 / Math.max(theme.name.length, 1);
+                for (let ci = 0; ci < theme.name.length; ci++) {
+                    const hue = (baseHue + ci * hueStep) % 360;
+                    this.drawCharColor(theme.name[ci], 22 + ci * 4, y, this.hslColor(hue, 85, lightness));
+                }
+            }
+            else {
+                // Non-fancy themes: static color
+                this.bufCtx.fillStyle = theme.dark;
+                this.bufCtx.fillRect(14, y, 4, 5);
+                const nameColor = isSelected ? theme.dark : "#888899";
+                this.drawTextColor(theme.name, 22, y, nameColor);
+            }
         }
         // Scroll-down indicator
         if (viewStart + maxVisible < total) {
@@ -185,10 +206,10 @@ export class Renderer {
         this.drawTextCentered("PRESS ENTER", 36);
         this.flush();
     }
-    render(state, game, themeIndex) {
+    render(state, game, themeIndex, timestamp) {
         switch (state) {
             case GameState.ThemeSelect:
-                this.renderThemeSelect(themeIndex ?? 0);
+                this.renderThemeSelect(themeIndex ?? 0, timestamp ?? 0);
                 break;
             case GameState.Start:
                 this.renderStart();

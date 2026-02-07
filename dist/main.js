@@ -12,6 +12,13 @@ class App {
         this.isFancy = false;
         this.lastTick = 0;
         this.animFrame = 0;
+        this.themeAnimFrame = 0;
+        this.themeSelectLoop = (now) => {
+            if (this.state !== GameState.ThemeSelect)
+                return;
+            this.renderer.render(this.state, this.game, this.themeIndex, now);
+            this.themeAnimFrame = requestAnimationFrame(this.themeSelectLoop);
+        };
         this.loop = (now) => {
             if (this.state !== GameState.Playing)
                 return;
@@ -43,28 +50,35 @@ class App {
         this.sound = new Sound();
         this.music = new Music();
         new Input((dir) => this.onDirection(dir), () => this.onEnter());
-        this.renderer.render(this.state, this.game, this.themeIndex);
+        this.startThemeSelectLoop();
     }
     onDirection(dir) {
         if (this.state === GameState.ThemeSelect) {
             if (dir === Direction.Up) {
                 this.themeIndex = (this.themeIndex - 1 + THEMES.length) % THEMES.length;
                 this.sound.navigate();
-                this.renderer.render(this.state, this.game, this.themeIndex);
             }
             else if (dir === Direction.Down) {
                 this.themeIndex = (this.themeIndex + 1) % THEMES.length;
                 this.sound.navigate();
-                this.renderer.render(this.state, this.game, this.themeIndex);
+            }
+            else if (dir === Direction.Right) {
+                this.onEnter();
             }
         }
         else if (this.state === GameState.Playing) {
             this.game.setDirection(dir);
         }
+        else if (this.state === GameState.Start || this.state === GameState.GameOver) {
+            if (dir === Direction.Right) {
+                this.onEnter();
+            }
+        }
     }
     onEnter() {
         switch (this.state) {
             case GameState.ThemeSelect: {
+                cancelAnimationFrame(this.themeAnimFrame);
                 const theme = THEMES[this.themeIndex];
                 this.isFancy = !!theme.fancy;
                 if (this.isFancy) {
@@ -88,9 +102,13 @@ class App {
             case GameState.GameOver:
                 this.music.stopMusic();
                 this.state = GameState.ThemeSelect;
-                this.renderer.render(this.state, this.game, this.themeIndex);
+                this.startThemeSelectLoop();
                 break;
         }
+    }
+    startThemeSelectLoop() {
+        cancelAnimationFrame(this.themeAnimFrame);
+        this.themeAnimFrame = requestAnimationFrame(this.themeSelectLoop);
     }
     startGame() {
         this.game.reset();

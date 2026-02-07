@@ -7,11 +7,29 @@ export class Input {
   private onDirection: InputCallback;
   private onEnter: ActionCallback;
 
+  private static readonly DIR_MAP: Record<string, Direction> = {
+    up: Direction.Up,
+    right: Direction.Right,
+    down: Direction.Down,
+    left: Direction.Left,
+  };
+
   constructor(onDirection: InputCallback, onEnter: ActionCallback) {
     this.onDirection = onDirection;
     this.onEnter = onEnter;
 
     window.addEventListener("keydown", this.handleKey);
+
+    // Touch controls
+    document.querySelectorAll<HTMLButtonElement>(".ctrl-btn").forEach((btn) => {
+      btn.addEventListener("touchstart", (e: TouchEvent) => {
+        e.preventDefault();
+        const dir = Input.DIR_MAP[btn.dataset.dir ?? ""];
+        if (dir !== undefined) {
+          this.onDirection(dir);
+        }
+      }, { passive: false });
+    });
   }
 
   private handleKey = (e: KeyboardEvent): void => {
