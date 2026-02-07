@@ -1,9 +1,6 @@
 import { Point, Direction } from "./types.js";
 
 // Nokia 3310 screen: 84x48 pixels
-// Snake game grid uses 2x2 pixel cells for each tile
-// Playable area: top area reserved for score display
-// Grid: 42 columns x 19 rows (leaving ~10px top for score bar)
 export const SCREEN_W = 84;
 export const SCREEN_H = 48;
 export const GRID_COLS = 41;
@@ -26,14 +23,21 @@ export class Game {
   highScore: number = 0;
   isAlive: boolean = true;
 
+  private cols: number = GRID_COLS;
+  private rows: number = GRID_ROWS;
+
   constructor() {
     this.reset();
   }
 
+  configure(cols: number, rows: number): void {
+    this.cols = cols;
+    this.rows = rows;
+  }
+
   reset(): void {
-    // Start snake in the middle, length 3
-    const startX = Math.floor(GRID_COLS / 2);
-    const startY = Math.floor(GRID_ROWS / 2);
+    const startX = Math.floor(this.cols / 2);
+    const startY = Math.floor(this.rows / 2);
     this.snake = [
       { x: startX, y: startY },
       { x: startX - 1, y: startY },
@@ -47,7 +51,6 @@ export class Game {
   }
 
   setDirection(dir: Direction): void {
-    // Prevent 180-degree turns
     const opposite =
       (dir === Direction.Up && this.direction === Direction.Down) ||
       (dir === Direction.Down && this.direction === Direction.Up) ||
@@ -69,16 +72,15 @@ export class Game {
     // Wall collision
     if (
       newHead.x < 0 ||
-      newHead.x >= GRID_COLS ||
+      newHead.x >= this.cols ||
       newHead.y < 0 ||
-      newHead.y >= GRID_ROWS
+      newHead.y >= this.rows
     ) {
       this.isAlive = false;
       return { ate: false, died: true };
     }
 
-    // Self collision (check against all body segments except the tail,
-    // which will move away — unless we just ate)
+    // Self collision
     for (let i = 0; i < this.snake.length - 1; i++) {
       if (this.snake[i].x === newHead.x && this.snake[i].y === newHead.y) {
         this.isAlive = false;
@@ -88,7 +90,6 @@ export class Game {
 
     this.snake.unshift(newHead);
 
-    // Check food
     const ate = newHead.x === this.food.x && newHead.y === this.food.y;
     if (ate) {
       this.score++;
@@ -104,16 +105,14 @@ export class Game {
   }
 
   private spawnFood(): void {
-    // Build set of occupied cells
     const occupied = new Set<string>();
     for (const seg of this.snake) {
       occupied.add(`${seg.x},${seg.y}`);
     }
 
-    // Find all free cells
     const free: Point[] = [];
-    for (let y = 0; y < GRID_ROWS; y++) {
-      for (let x = 0; x < GRID_COLS; x++) {
+    for (let y = 0; y < this.rows; y++) {
+      for (let x = 0; x < this.cols; x++) {
         if (!occupied.has(`${x},${y}`)) {
           free.push({ x, y });
         }
@@ -125,9 +124,7 @@ export class Game {
     }
   }
 
-  /** Current game speed in ms per tick — gets faster as score increases */
   get speed(): number {
-    // Original Nokia Snake started around 400ms and sped up
     const base = 350;
     const min = 100;
     const reduction = this.score * 8;

@@ -2,52 +2,45 @@ import { GameState, THEMES } from "./types.js";
 import { SCREEN_W, SCREEN_H, GRID_OFFSET_Y, GRID_ROWS } from "./game.js";
 export class Renderer {
     constructor(canvas) {
-        // Current theme colors
         this.dark = "#43523D";
         this.light = "#C7D9A4";
         this.canvas = canvas;
-        // Scale so the 84x48 screen fills a reasonable desktop area
         this.scale = Math.min(Math.floor(window.innerHeight * 0.85 / SCREEN_H), Math.floor(window.innerWidth * 0.85 / SCREEN_W));
-        this.scale = Math.max(this.scale, 4); // minimum 4x
+        this.scale = Math.max(this.scale, 4);
         this.canvas.width = SCREEN_W * this.scale;
         this.canvas.height = SCREEN_H * this.scale;
         this.ctx = canvas.getContext("2d");
         this.ctx.imageSmoothingEnabled = false;
-        // Native-res buffer
         this.buffer = document.createElement("canvas");
         this.buffer.width = SCREEN_W;
         this.buffer.height = SCREEN_H;
         this.bufCtx = this.buffer.getContext("2d");
     }
+    getCanvasWidth() { return this.canvas.width; }
+    getCanvasHeight() { return this.canvas.height; }
     setTheme(theme) {
         this.dark = theme.dark;
         this.light = theme.light;
     }
-    /** Set a single pixel on the buffer */
     px(x, y, on = true) {
         this.bufCtx.fillStyle = on ? this.dark : this.light;
         this.bufCtx.fillRect(x, y, 1, 1);
     }
-    /** Set a pixel with an explicit color */
     pxColor(x, y, color) {
         this.bufCtx.fillStyle = color;
         this.bufCtx.fillRect(x, y, 1, 1);
     }
-    /** Clear buffer to LCD background */
     clear() {
         this.bufCtx.fillStyle = this.light;
         this.bufCtx.fillRect(0, 0, SCREEN_W, SCREEN_H);
     }
-    /** Clear buffer to a specific color */
     clearColor(color) {
         this.bufCtx.fillStyle = color;
         this.bufCtx.fillRect(0, 0, SCREEN_W, SCREEN_H);
     }
-    /** Flush buffer to visible canvas */
     flush() {
         this.ctx.drawImage(this.buffer, 0, 0, SCREEN_W, SCREEN_H, 0, 0, this.canvas.width, this.canvas.height);
     }
-    /** Draw a horizontal line */
     hline(x1, x2, y) {
         for (let x = x1; x <= x2; x++)
             this.px(x, y);
@@ -64,7 +57,6 @@ export class Renderer {
             }
         }
     }
-    /** Draw char with explicit color */
     drawCharColor(ch, x, y, color) {
         const glyph = Renderer.FONT[ch.toUpperCase()];
         if (!glyph)
@@ -87,7 +79,6 @@ export class Renderer {
             this.drawCharColor(text[i], x + i * 4, y, color);
         }
     }
-    /** Center text horizontally */
     drawTextCentered(text, y) {
         const w = text.length * 4 - 1;
         const x = Math.floor((SCREEN_W - w) / 2);
@@ -98,35 +89,44 @@ export class Renderer {
         const x = Math.floor((SCREEN_W - w) / 2);
         this.drawTextColor(text, x, y, color);
     }
-    // ---- Theme selection screen ----
+    // ---- Theme selection screen (scrollable) ----
     renderThemeSelect(selectedIndex) {
         this.clearColor("#1A1A2E");
         // Title
-        this.drawTextCenteredColor("CHOOSE THEME", 3, "#FFFFFF");
+        this.drawTextCenteredColor("CHOOSE THEME", 2, "#FFFFFF");
         // Divider
         for (let x = 10; x < SCREEN_W - 10; x++) {
-            this.pxColor(x, 11, "#444466");
+            this.pxColor(x, 9, "#444466");
         }
-        // Options
-        const startY = 16;
+        // Scrollable viewport: show up to 3 items
+        const maxVisible = 3;
+        const total = THEMES.length;
+        const viewStart = Math.max(0, Math.min(selectedIndex - 1, total - maxVisible));
+        // Scroll-up indicator
+        if (viewStart > 0) {
+            this.drawTextCenteredColor("...", 11, "#555577");
+        }
+        const startY = 14;
         const spacing = 10;
-        for (let i = 0; i < THEMES.length; i++) {
+        for (let vi = 0; vi < maxVisible && viewStart + vi < total; vi++) {
+            const i = viewStart + vi;
             const theme = THEMES[i];
-            const y = startY + i * spacing;
+            const y = startY + vi * spacing;
             const isSelected = i === selectedIndex;
             if (isSelected) {
-                // Highlight background bar
                 this.bufCtx.fillStyle = "#2A2A4E";
                 this.bufCtx.fillRect(4, y - 2, SCREEN_W - 8, 9);
-                // Arrow indicator
                 this.drawCharColor(">", 6, y, "#FFFFFF");
             }
-            // Color preview swatch (4x5 block showing the theme's dark color)
+            // Color preview swatch
             this.bufCtx.fillStyle = theme.dark;
             this.bufCtx.fillRect(14, y, 4, 5);
-            // Theme name
             const nameColor = isSelected ? theme.dark : "#888899";
             this.drawTextColor(theme.name, 22, y, nameColor);
+        }
+        // Scroll-down indicator
+        if (viewStart + maxVisible < total) {
+            this.drawTextCenteredColor("...", 44, "#555577");
         }
         // Footer
         this.drawTextCenteredColor("ENTER TO SELECT", 44, "#555577");
@@ -136,7 +136,6 @@ export class Renderer {
     renderStart() {
         this.clear();
         this.drawTextCentered("SNAKE", 8);
-        // Draw a small snake icon
         const cx = Math.floor(SCREEN_W / 2);
         const cy = 22;
         for (let i = 0; i < 8; i++) {
@@ -151,31 +150,23 @@ export class Renderer {
     }
     renderPlaying(game) {
         this.clear();
-        // Score bar at top
         this.drawText("SCORE:" + game.score.toString(), 1, 1);
         this.drawText("HI:" + game.highScore.toString(), 54, 1);
-        // Divider line
         this.hline(0, SCREEN_W - 1, GRID_OFFSET_Y - 2);
-        // Draw border around play area
-        // Play area: x=1..82 (41 cols * 2px), y=GRID_OFFSET_Y..GRID_OFFSET_Y+35 (18 rows * 2px)
         const top = GRID_OFFSET_Y - 1;
         const bottom = GRID_OFFSET_Y + GRID_ROWS * 2;
-        // Top & bottom borders
         this.hline(0, SCREEN_W - 1, top);
         this.hline(0, SCREEN_W - 1, bottom);
-        // Side borders
         for (let y = top; y <= bottom; y++) {
             this.px(0, y);
             this.px(SCREEN_W - 1, y);
         }
-        // Draw food (2x2 block)
         const fx = 1 + game.food.x * 2;
         const fy = GRID_OFFSET_Y + game.food.y * 2;
         this.px(fx, fy);
         this.px(fx + 1, fy);
         this.px(fx, fy + 1);
         this.px(fx + 1, fy + 1);
-        // Draw snake (2x2 blocks)
         for (const seg of game.snake) {
             const sx = 1 + seg.x * 2;
             const sy = GRID_OFFSET_Y + seg.y * 2;

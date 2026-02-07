@@ -1,23 +1,29 @@
 import { Direction, GameState, THEMES } from "./types.js";
-import { Game } from "./game.js";
+import { Game, GRID_COLS, GRID_ROWS } from "./game.js";
 import { Renderer } from "./renderer.js";
+import { FancyRenderer } from "./fancy.js";
 import { Input } from "./input.js";
-import { Sound } from "./sound.js";
+import { Sound, Music } from "./sound.js";
 
 class App {
+  private canvas: HTMLCanvasElement;
   private game: Game;
   private renderer: Renderer;
+  private fancyRenderer: FancyRenderer | null = null;
   private sound: Sound;
+  private music: Music;
   private state: GameState = GameState.ThemeSelect;
   private themeIndex: number = 0;
+  private isFancy: boolean = false;
   private lastTick: number = 0;
   private animFrame: number = 0;
 
   constructor() {
-    const canvas = document.getElementById("game") as HTMLCanvasElement;
+    this.canvas = document.getElementById("game") as HTMLCanvasElement;
     this.game = new Game();
-    this.renderer = new Renderer(canvas);
+    this.renderer = new Renderer(this.canvas);
     this.sound = new Sound();
+    this.music = new Music();
 
     new Input(
       (dir: Direction) => this.onDirection(dir),
@@ -45,15 +51,29 @@ class App {
 
   private onEnter(): void {
     switch (this.state) {
-      case GameState.ThemeSelect:
-        this.renderer.setTheme(THEMES[this.themeIndex]);
+      case GameState.ThemeSelect: {
+        const theme = THEMES[this.themeIndex];
+        this.isFancy = !!theme.fancy;
+
+        if (this.isFancy) {
+          if (!this.fancyRenderer) {
+            this.fancyRenderer = new FancyRenderer(this.canvas);
+          }
+          this.game.configure(this.fancyRenderer.cols, this.fancyRenderer.rows);
+          this.fancyRenderer.render(GameState.Start, this.game);
+        } else {
+          this.game.configure(GRID_COLS, GRID_ROWS);
+          this.renderer.setTheme(theme);
+          this.renderer.render(GameState.Start, this.game);
+        }
         this.state = GameState.Start;
-        this.renderer.render(this.state, this.game);
         break;
+      }
       case GameState.Start:
         this.startGame();
         break;
       case GameState.GameOver:
+        this.music.stopMusic();
         this.state = GameState.ThemeSelect;
         this.renderer.render(this.state, this.game, this.themeIndex);
         break;
@@ -64,8 +84,26 @@ class App {
     this.game.reset();
     this.state = GameState.Playing;
     this.sound.start();
+
+    if (this.isFancy) {
+      // Start 8-bit music after a short delay so the start jingle plays first
+      setTimeout(() => {
+        if (this.state === GameState.Playing) {
+          this.music.startMusic();
+        }
+      }, 300);
+    }
+
     this.lastTick = performance.now();
     this.loop(this.lastTick);
+  }
+
+  private renderCurrent(state: GameState): void {
+    if (this.isFancy && this.fancyRenderer) {
+      this.fancyRenderer.render(state, this.game);
+    } else {
+      this.renderer.render(state, this.game);
+    }
   }
 
   private loop = (now: number): void => {
@@ -78,12 +116,13 @@ class App {
 
       if (result.died) {
         this.sound.die();
+        this.music.stopMusic();
         this.state = GameState.GameOver;
         // Brief delay to show the death state before game over screen
         setTimeout(() => {
-          this.renderer.render(this.state, this.game);
+          this.renderCurrent(this.state);
         }, 800);
-        this.renderer.render(GameState.Playing, this.game);
+        this.renderCurrent(GameState.Playing);
         return;
       }
 
@@ -91,7 +130,7 @@ class App {
         this.sound.eat();
       }
 
-      this.renderer.render(this.state, this.game);
+      this.renderCurrent(this.state);
     }
 
     this.animFrame = requestAnimationFrame(this.loop);
